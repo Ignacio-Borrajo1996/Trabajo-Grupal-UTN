@@ -21,7 +21,11 @@ public class PlayerMc : MonoBehaviour
 
     bool isWallLeft;                     
     bool isWallRight;                 
-    bool isWallRunning;              
+    bool isWallRunning;
+  
+    RaycastHit hitLeft;
+    RaycastHit hitRight;
+    Collider lastWall;
 
     // Cam Values
     public Camera playerCamera;
@@ -47,13 +51,24 @@ public class PlayerMc : MonoBehaviour
         //Wall Run Check
         CheckForWall();
 
-        if (!characterController.isGrounded && (isWallLeft || isWallRight) && Input.GetAxis("Vertical") > 0)
+        if (!characterController.isGrounded && (isWallLeft || isWallRight) && Input.GetAxis("Vertical") > 0 && moveDirection.y <= 0)
         {
             isWallRunning = true;
         }
         else
         {
             isWallRunning = false;
+        }
+
+        if (isWallRunning)
+        {
+            Collider currentWall = isWallRight ? hitRight.collider : hitLeft.collider;
+
+            if (currentWall != null && currentWall != lastWall)
+            {
+                jumpsLeft = jumpsMax;
+                lastWall = currentWall;
+            }
         }
 
         float movementDirectionY = moveDirection.y;
@@ -67,8 +82,9 @@ public class PlayerMc : MonoBehaviour
 
         if (isWallRunning)
         {
-            // Movement Wall
-            moveDirection = forward * runSpeed;
+            //WallRun
+            float currentWallSpeed = isRunning ? runSpeed : walkSpeed;
+            moveDirection = forward * currentWallSpeed;
             moveDirection.y = -wallGravity;
         }
         else
@@ -86,6 +102,7 @@ public class PlayerMc : MonoBehaviour
         if (characterController.isGrounded)
         {
             jumpsLeft = jumpsMax;
+            lastWall = null;
         }
 
         #region Handles Jumping
@@ -121,8 +138,8 @@ public class PlayerMc : MonoBehaviour
 
     void CheckForWall()
     {
-        isWallRight = Physics.Raycast(transform.position, transform.right, wallCheckDistance, wallLayer);
-        isWallLeft = Physics.Raycast(transform.position, -transform.right, wallCheckDistance, wallLayer);
+        isWallRight = Physics.Raycast(transform.position, transform.right, out hitRight, wallCheckDistance, wallLayer);
+        isWallLeft = Physics.Raycast(transform.position, -transform.right, out hitLeft, wallCheckDistance, wallLayer);
     }
 
     public static PlayerMc Instance;
