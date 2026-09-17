@@ -41,6 +41,14 @@ public class PlayerMc : MonoBehaviour
     RaycastHit hitJumpRight;
     Collider lastWallJumped;
 
+    //Grab
+    public LayerMask obstacleLayers = ~0;
+    public float reachDistance = 0.8f;
+    public float chestHeight = 1.2f;
+    public float headHeight = 2.2f;
+    public float ledgeBoostPower = 8f;
+
+
     // Cam Values
     public Camera playerCamera;
     public bool canMove = true;
@@ -62,6 +70,7 @@ public class PlayerMc : MonoBehaviour
 
     void Update()
     {
+
         CheckForWallRun();
         CheckForWallJump();
 
@@ -75,6 +84,11 @@ public class PlayerMc : MonoBehaviour
             {
                 moveDirection.y = -2f;
             }
+        }
+
+        if (!characterController.isGrounded && !isWallRunning && !isWallSliding && moveDirection.y <= 2f)
+        {
+            CheckForLedgeBoost();
         }
 
         //Wall run
@@ -208,6 +222,23 @@ public class PlayerMc : MonoBehaviour
     {
         isWallJumpRight = Physics.Raycast(transform.position, transform.right, out hitJumpRight, wallJumpCheckDistance, wallJumpLayer);
         isWallJumpLeft = Physics.Raycast(transform.position, -transform.right, out hitJumpLeft, wallJumpCheckDistance, wallJumpLayer);
+    }
+
+    void CheckForLedgeBoost()
+    {
+        Vector3 originChest = transform.position + Vector3.up * chestHeight;
+
+        if (Physics.Raycast(originChest, transform.forward, out RaycastHit wallHit, reachDistance, obstacleLayers))
+        {
+            Vector3 originHead = transform.position + Vector3.up * headHeight + transform.forward * (reachDistance * 0.8f);
+
+            if (Physics.Raycast(originHead, Vector3.down, out RaycastHit ledgeHit, headHeight - chestHeight + 0.5f, obstacleLayers))
+            {
+
+                moveDirection.y = ledgeBoostPower;
+                moveDirection += transform.forward * 3f;
+            }
+        }
     }
 
     public static PlayerMc Instance;
