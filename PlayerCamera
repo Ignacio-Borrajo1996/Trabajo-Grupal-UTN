@@ -1,0 +1,82 @@
+using UnityEngine;
+
+public class PlayerCamera : MonoBehaviour
+{
+    // Cam Values
+    [SerializeField] private Camera playerCamera;
+    [SerializeField] private Transform playerBody;
+    [SerializeField] private float lookSpeed = 8f;
+    [SerializeField] private float lookXLimit = 85f;
+
+    [Header("Efectos de Cámara")]
+    [SerializeField] private float normalFOV = 60f;
+    [SerializeField] private float runFOV = 72f;
+    [SerializeField] private float fovSpeed = 8f;
+    [SerializeField] private float tiltAngle = 10f;
+    [SerializeField] private float tiltSpeed = 8f;
+
+    private float rotationX = 0f;
+    private float currentTilt = 0f;
+    private float targetTilt = 0f;
+    private float targetFOV;
+    private bool canMove = true;
+
+    public bool CanMove
+    {
+        get => canMove;
+        set => canMove = value;
+    }
+
+    private void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        if (playerCamera == null) playerCamera = Camera.main;
+        if (playerBody == null) playerBody = transform;
+
+        if (playerCamera != null)
+        {
+            targetFOV = normalFOV;
+            playerCamera.fieldOfView = normalFOV;
+        }
+    }
+
+    private void Update()
+    {
+        currentTilt = Mathf.Lerp(currentTilt, targetTilt, Time.deltaTime * tiltSpeed);
+
+        if (playerCamera != null)
+        {
+            playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFOV, Time.deltaTime * fovSpeed);
+        }
+    }
+
+    private void LateUpdate()
+    {
+        // Cam
+        #region Handles Rotation
+        if (canMove && playerCamera != null && playerBody != null)
+        {
+            float mouseX = Input.GetAxis("Mouse X") * lookSpeed;
+            float mouseY = Input.GetAxis("Mouse Y") * lookSpeed;
+
+            rotationX -= mouseY;
+            rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
+
+            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, currentTilt);
+            playerBody.Rotate(Vector3.up * mouseX);
+        }
+        #endregion
+    }
+
+    public void SetTilt(float angle)
+    {
+        targetTilt = angle;
+    }
+
+    public void SetFOV(bool isRunning)
+    {
+        targetFOV = isRunning ? runFOV : normalFOV;
+    }
+}
