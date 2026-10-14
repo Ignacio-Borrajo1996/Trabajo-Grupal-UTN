@@ -5,77 +5,93 @@ public class PlayerMc : MonoBehaviour
     //PlayerMMC (Player Movement, Mechanics and Camera)
 
     //Movement Values
-    public float walkSpeed = 8f;
-    public float runSpeed = 15f;
-    public float jumpPower = 5f;
-    public float gravity = 10f;
-    Vector3 moveDirection = Vector3.zero;
+    [SerializeField] private float walkSpeed = 8f;
+    [SerializeField] private float runSpeed = 15f;
+    [SerializeField] private float jumpPower = 5f;
+    [SerializeField] private float gravity = 12f;
+    [SerializeField] private float airControl = 4f;
+    private Vector3 moveDirection = Vector3.zero;
 
-    public int jumpsMax = 2;
+    [SerializeField] private int jumpsMax = 2;
     public int jumpsLeft;
 
-    //Wall Run Values
-    public LayerMask wallLayer;
-    public float wallCheckDistance = 1.2f;
-    public float wallGravity = 2f;
-    public float wallStickForce = 3f;
+    // Game Feel
+    [Header("Juice / Game Feel")]
+    [SerializeField] private float coyoteTime = 0.15f;
+    private float coyoteTimeCounter;
 
-    bool isWallLeft;
-    bool isWallRight;
-    bool isWallRunning;
-    RaycastHit hitLeft;
-    RaycastHit hitRight;
-    Collider lastWallRun;
+    [SerializeField] private float jumpBufferTime = 0.15f;
+    private float jumpBufferCounter;
+
+    //Wall Run Values
+    [SerializeField] private LayerMask wallLayer;
+    [SerializeField] private float wallCheckDistance = 1.2f;
+    [SerializeField] private float wallGravity = 2f;
+    [SerializeField] private float wallStickForce = 3f;
+
+    private bool isWallLeft;
+    private bool isWallRight;
+    private bool isWallRunning;
+    private RaycastHit hitLeft;
+    private RaycastHit hitRight;
+    private Collider lastWallRun;
 
     //Wall Jump Values
-    public LayerMask wallJumpLayer;
-    public float wallJumpCheckDistance = 1.2f;
-    public float wallSlideSpeed = 1.5f;
-    public float wallJumpUpForce = 10f;
-    public float wallJumpOutForce = 8f;
+    [SerializeField] private LayerMask wallJumpLayer;
+    [SerializeField] private float wallJumpCheckDistance = 1.2f;
+    [SerializeField] private float wallSlideSpeed = 1.5f;
+    [SerializeField] private float wallJumpUpForce = 10f;
+    [SerializeField] private float wallJumpOutForce = 8f;
 
-    bool isWallJumpLeft;
-    bool isWallJumpRight;
-    bool isWallSliding;
-    RaycastHit hitJumpLeft;
-    RaycastHit hitJumpRight;
-    Collider lastWallJumped;
+    private bool isWallJumpLeft;
+    private bool isWallJumpRight;
+    private bool isWallJumpFront;
+    private bool isWallSliding;
+    private RaycastHit hitJumpLeft;
+    private RaycastHit hitJumpRight;
+    private RaycastHit hitJumpFront;
+    private Collider lastWallJumped;
 
-    //Grab
-    public LayerMask obstacleLayers = ~0;
-    public float reachDistance = 0.8f;
-    public float chestHeight = 1.2f;
-    public float headHeight = 2.2f;
-    public float ledgeBoostPower = 8f;
+    //Grab / Ledge
+    [SerializeField] private LayerMask obstacleLayers = ~0;
+    [SerializeField] private float reachDistance = 0.8f;
+    [SerializeField] private float chestHeight = 1.2f;
+    [SerializeField] private float headHeight = 2.2f;
+    [SerializeField] private float ledgeBoostPower = 8f;
 
-
-    // Cam Values
-    public Camera playerCamera;
     public bool canMove = true;
     public bool StopInteractions = false;
-    public float lookSpeed = 8f;
-    public float lookXLimit = 45f;
-    float rotationX = 0;
 
-    CharacterController characterController;
+    [Header("Referencias")]
+    [SerializeField] private PlayerCamera playerCameraScript;
 
-    void Start()
+    private CharacterController characterController;
+
+    public static PlayerMc Instance;
+
+    private void Awake()
     {
-        characterController = GetComponent<CharacterController>();
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-
-        jumpsLeft = jumpsMax;
+        Instance = this;
     }
 
-    void Update()
+    private void Start()
     {
+        characterController = GetComponent<CharacterController>();
+        jumpsLeft = jumpsMax;
 
-        CheckForWallRun();
-        CheckForWallJump();
-
-        if (characterController.isGrounded)
+        if (playerCameraScript == null)
         {
+            playerCameraScript = GetComponentInChildren<PlayerCamera>();
+        }
+    }
+
+    private void Update()
+    {
+        bool isGrounded = characterController.isGrounded;
+
+        if (isGrounded)
+        {
+            coyoteTimeCounter = coyoteTime;
             jumpsLeft = jumpsMax;
             lastWallRun = null;
             lastWallJumped = null;
@@ -85,16 +101,42 @@ public class PlayerMc : MonoBehaviour
                 moveDirection.y = -2f;
             }
         }
-
-        if (!characterController.isGrounded && !isWallRunning && !isWallSliding && moveDirection.y <= 2f)
+        else
         {
-            CheckForLedgeBoost();
+            coyoteTimeCounter -= Time.deltaTime;
+
+            CheckForWallRun();
+            CheckForWallJump();
+
+            if (!isWallRunning && !isWallSliding && moveDirection.y <= 2f)
+            {
+                CheckForLedgeBoost();
+            }
         }
 
-        //Wall run
-        if (!characterController.isGrounded && (isWallLeft || isWallRight) && Input.GetAxis("Vertical") > 0 && moveDirection.y <= 0)
+        if (Input.GetButtonDown("Jump"))
         {
-            isWallRunning = true;
+            jumpBufferCounter = jumpBufferTime;
+        }
+        else
+        {
+            jumpBufferCounter -= Time.deltaTime;
+        }
+
+        // WALL RUN
+        Collider currentWall = isWallRight ? hitRight.collider : hitLeft.collider;
+        bool canWallRun = !isGrounded && (isWallLeft || isWallRight) && Input.GetAxisRaw("Vertical") > 0 && moveDirection.y <= 0;
+
+        if (canWallRun)
+        {
+            if (isWallRunning || currentWall != lastWallRun)
+            {
+                isWallRunning = true;
+            }
+            else
+            {
+                isWallRunning = false;
+            }
         }
         else
         {
@@ -103,7 +145,6 @@ public class PlayerMc : MonoBehaviour
 
         if (isWallRunning)
         {
-            Collider currentWall = isWallRight ? hitRight.collider : hitLeft.collider;
             if (currentWall != null && currentWall != lastWallRun)
             {
                 jumpsLeft = jumpsMax;
@@ -111,8 +152,27 @@ public class PlayerMc : MonoBehaviour
             }
         }
 
-        RaycastHit activeJumpHit = isWallJumpRight ? hitJumpRight : hitJumpLeft;
-        if (!characterController.isGrounded && !isWallRunning && (isWallJumpLeft || isWallJumpRight) && moveDirection.y < 0 && activeJumpHit.collider != lastWallJumped)
+        // WALL JUMP
+        RaycastHit activeJumpHit = default;
+        bool isAnyWallJumpDetected = false;
+
+        if (isWallJumpFront)
+        {
+            activeJumpHit = hitJumpFront;
+            isAnyWallJumpDetected = true;
+        }
+        else if (isWallJumpRight)
+        {
+            activeJumpHit = hitJumpRight;
+            isAnyWallJumpDetected = true;
+        }
+        else if (isWallJumpLeft)
+        {
+            activeJumpHit = hitJumpLeft;
+            isAnyWallJumpDetected = true;
+        }
+
+        if (!isGrounded && !isWallRunning && isAnyWallJumpDetected && moveDirection.y < 0 && activeJumpHit.collider != lastWallJumped)
         {
             isWallSliding = true;
         }
@@ -131,7 +191,7 @@ public class PlayerMc : MonoBehaviour
 
         if (isWallRunning)
         {
-            //Wall run
+            // Wall run
             Vector3 wallNormal = isWallRight ? hitRight.normal : hitLeft.normal;
             Vector3 wallForward = Vector3.ProjectOnPlane(transform.forward, wallNormal).normalized;
             float currentSpeed = isRunning ? runSpeed : walkSpeed;
@@ -139,52 +199,94 @@ public class PlayerMc : MonoBehaviour
             moveDirection = wallForward * currentSpeed;
             moveDirection.y = -wallGravity;
             moveDirection -= wallNormal * wallStickForce;
+
+            if (playerCameraScript != null)
+            {
+                playerCameraScript.SetTilt(isWallRight ? -12f : 12f);
+                playerCameraScript.SetFOV(true);
+            }
         }
         else if (isWallSliding)
         {
             moveDirection.x = 0;
             moveDirection.z = 0;
             moveDirection.y = -wallSlideSpeed;
+
+            if (playerCameraScript != null)
+            {
+                playerCameraScript.SetTilt(0f);
+                playerCameraScript.SetFOV(false);
+            }
         }
-        else
+        else if (isGrounded)
         {
-            float curSpeedX = canMove ? (isRunning ? runSpeed : walkSpeed) * Input.GetAxis("Vertical") : 0;
-            float curSpeedY = canMove ? (isRunning ? runSpeed : walkSpeed) * Input.GetAxis("Horizontal") : 0;
+            float curSpeedX = canMove ? (isRunning ? runSpeed : walkSpeed) * Input.GetAxisRaw("Vertical") : 0;
+            float curSpeedY = canMove ? (isRunning ? runSpeed : walkSpeed) * Input.GetAxisRaw("Horizontal") : 0;
 
             moveDirection = (forward * curSpeedX) + (right * curSpeedY);
             moveDirection.y = movementDirectionY;
+
+            if (playerCameraScript != null)
+            {
+                playerCameraScript.SetTilt(0f);
+                bool isMovingForward = Input.GetAxisRaw("Vertical") > 0;
+                playerCameraScript.SetFOV(isRunning && isMovingForward);
+            }
+        }
+        else
+        {
+            float curSpeedX = canMove ? (isRunning ? runSpeed : walkSpeed) * Input.GetAxisRaw("Vertical") : 0;
+            float curSpeedY = canMove ? (isRunning ? runSpeed : walkSpeed) * Input.GetAxisRaw("Horizontal") : 0;
+
+            Vector3 targetInput = (forward * curSpeedX) + (right * curSpeedY);
+            Vector3 currentHorizontal = new Vector3(moveDirection.x, 0f, moveDirection.z);
+
+            Vector3 newHorizontal = Vector3.Lerp(currentHorizontal, targetInput, airControl * Time.deltaTime);
+
+            moveDirection.x = newHorizontal.x;
+            moveDirection.z = newHorizontal.z;
+            moveDirection.y = movementDirectionY;
+
+            if (playerCameraScript != null)
+            {
+                playerCameraScript.SetTilt(0f);
+            }
         }
         #endregion
 
         // Jump
         #region Handles Jumping
-        if (Input.GetButtonDown("Jump") && canMove)
+        if (jumpBufferCounter > 0f && canMove)
         {
             if (isWallRunning)
             {
-                //Wall run jump
+                // Wall run jump
                 Vector3 wallNormal = isWallRight ? hitRight.normal : hitLeft.normal;
-                Vector3 jumpDirection = (Vector3.up * 1.2f + wallNormal * 1.5f).normalized;
+                Vector3 jumpDirection = (Vector3.up * wallJumpUpForce) + (wallNormal * wallJumpOutForce);
 
-                moveDirection = jumpDirection * jumpPower;
+                moveDirection = jumpDirection;
                 jumpsLeft--;
                 isWallRunning = false;
+                jumpBufferCounter = 0f;
             }
             else if (isWallSliding)
             {
-                //Wall jump
+                // Wall jump
                 Vector3 wallNormal = activeJumpHit.normal;
                 Vector3 jumpDirection = (Vector3.up * wallJumpUpForce) + (wallNormal * wallJumpOutForce);
 
                 moveDirection = jumpDirection;
                 lastWallJumped = activeJumpHit.collider;
                 isWallSliding = false;
+                jumpBufferCounter = 0f;
             }
-            else if (characterController.isGrounded || jumpsLeft > 0)
+            else if (coyoteTimeCounter > 0f || jumpsLeft > 0)
             {
-                //Jump
+                // Jump normal
                 moveDirection.y = jumpPower;
                 jumpsLeft--;
+                coyoteTimeCounter = 0f;
+                jumpBufferCounter = 0f;
             }
         }
         else if (!isWallRunning && !isWallSliding)
@@ -192,39 +294,29 @@ public class PlayerMc : MonoBehaviour
             moveDirection.y = movementDirectionY;
         }
 
-        if (!characterController.isGrounded && !isWallRunning && !isWallSliding)
+        if (!isGrounded && !isWallRunning && !isWallSliding)
         {
             moveDirection.y -= gravity * Time.deltaTime;
         }
         #endregion
 
-        //Cam
-        #region Handles Rotation
         characterController.Move(moveDirection * Time.deltaTime);
-
-        if (canMove)
-        {
-            rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
-            rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
-            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
-            transform.rotation *= Quaternion.Euler(0, Input.GetAxis("Mouse X") * lookSpeed, 0);
-        }
-        #endregion
     }
 
-    void CheckForWallRun()
+    private void CheckForWallRun()
     {
         isWallRight = Physics.Raycast(transform.position, transform.right, out hitRight, wallCheckDistance, wallLayer);
         isWallLeft = Physics.Raycast(transform.position, -transform.right, out hitLeft, wallCheckDistance, wallLayer);
     }
 
-    void CheckForWallJump()
+    private void CheckForWallJump()
     {
         isWallJumpRight = Physics.Raycast(transform.position, transform.right, out hitJumpRight, wallJumpCheckDistance, wallJumpLayer);
         isWallJumpLeft = Physics.Raycast(transform.position, -transform.right, out hitJumpLeft, wallJumpCheckDistance, wallJumpLayer);
+        isWallJumpFront = Physics.Raycast(transform.position, transform.forward, out hitJumpFront, wallJumpCheckDistance, wallJumpLayer);
     }
 
-    void CheckForLedgeBoost()
+    private void CheckForLedgeBoost()
     {
         Vector3 originChest = transform.position + Vector3.up * chestHeight;
 
@@ -234,17 +326,9 @@ public class PlayerMc : MonoBehaviour
 
             if (Physics.Raycast(originHead, Vector3.down, out RaycastHit ledgeHit, headHeight - chestHeight + 0.5f, obstacleLayers))
             {
-
                 moveDirection.y = ledgeBoostPower;
                 moveDirection += transform.forward * 3f;
             }
         }
-    }
-
-    public static PlayerMc Instance;
-
-    private void Awake()
-    {
-        Instance = this;
     }
 }
