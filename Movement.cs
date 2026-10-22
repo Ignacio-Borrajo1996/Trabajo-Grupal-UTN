@@ -331,4 +331,17 @@ public class PlayerMc : MonoBehaviour
             }
         }
     }
+
+    public void AplicarEmpuje(Vector3 fuerza)
+    {
+        if (characterController != null && characterController.enabled)
+        {
+            characterController.Move(fuerza * Time.deltaTime);
+
+            if (fuerza.y > 0f && moveDirection.y < fuerza.y)
+            {
+                moveDirection.y = Mathf.Max(moveDirection.y, fuerza.y * 0.5f);
+            }
+        }
+    }
 }
