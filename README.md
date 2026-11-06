@@ -1,0 +1,1 @@
+Archivos individuales para los sonidos, los scripts y los conceptos, modelos y arte del juego, los project settings, package manager, escenas y etc, se encuentran en la latest release, o la release de preferencia
